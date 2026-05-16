@@ -69,16 +69,21 @@ with tabs[2]:
 
     uploaded_file = st.file_uploader("Upload CSV with review column", type="csv")
 
-    if uploaded_file:
-        df = pd.read_csv(uploaded_file)
-        st.dataframe(df, use_container_width=True)
+if uploaded_file:
+    df = pd.read_csv(uploaded_file)
 
-        df["sentiment"] = df["review"].apply(get_sentiment)
+    st.dataframe(df, width="stretch")
 
-        for _, row in df.iterrows():
-            insert_feedback(row["review"], row["sentiment"])
+    # Remove null and empty reviews
+    df = df.dropna(subset=["review"])
+    df = df[df["review"].str.strip() != ""]
 
-        st.success("Feedback successfully added!")
+    df["sentiment"] = df["review"].apply(get_sentiment)
+
+    for _, row in df.iterrows():
+        insert_feedback(row["review"], row["sentiment"])
+
+    st.success("Feedback successfully added!")
 
 
 # ================= LOAD STORED DATA =================
