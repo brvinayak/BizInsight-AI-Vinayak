@@ -71,33 +71,23 @@ with tabs[2]:
 
     if uploaded_file:
         df = pd.read_csv(uploaded_file)
-
-        # Show raw data
         st.dataframe(df, width='stretch')
-
-        # Ensure 'review' column exists
         if "review" not in df.columns:
             st.error("CSV must contain a 'review' column.")
         else:
-            # Drop null/empty reviews
             df = df.dropna(subset=["review"])
 
-            # Convert to string safely + clean whitespace
             df["review"] = df["review"].astype(str).str.strip()
-
-            # Remove empty strings after stripping
             df = df[df["review"] != ""]
 
-            # Handle empty dataframe case
             if df.empty:
                 st.warning("No valid reviews found after cleaning. Nothing to process.")
             else:
-                # Sentiment analysis
                 df["sentiment"] = df["review"].apply(get_sentiment)
 
                 inserted_count = 0
 
-                # Insert into DB
+                
                 for _, row in df.iterrows():
                     insert_feedback(row["review"], row["sentiment"])
                     inserted_count += 1
