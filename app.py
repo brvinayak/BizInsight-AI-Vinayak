@@ -1,4 +1,5 @@
 import os
+from pdf_generator import create_pdf
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -109,22 +110,46 @@ if data:
         c3.metric("Negative", negative)
 
         st.markdown("---")
+        if st.button("Generate PDF Report"):
 
-        col1, col2 = st.columns([2,1])
+            # Create chart first
+            fig, ax = plt.subplots(figsize=(4,4))
 
-        with col1:
-            st.subheader("Customer Satisfaction Trend")
-            st.line_chart(trend)
+            ax.bar(
+                ["Positive", "Negative"],
+                [positive, negative]
+            )
 
-        with col2:
-            fig, ax = plt.subplots()
-            ax.bar(["Positive", "Negative"], [positive, negative])
-            st.pyplot(fig)
+            plt.tight_layout()
 
-        st.markdown("---")
+            fig.savefig("sentiment_chart.png")
 
-        st.subheader("Top Customer Issues")
-        st.write(list(keywords))
+            # THEN create PDF
+            create_pdf(len(df), positive, negative)
+
+            # Download button
+            with open("bizinsight_report.pdf", "rb") as pdf_file:
+
+                st.download_button(
+                label="Download Report",
+                data=pdf_file,
+                file_name="bizinsight_report.pdf",
+                mime="application/pdf"
+            )
+
+            # Dashboard visuals
+            col1, col2 = st.columns([2,1])
+
+            with col1:
+                st.subheader("Customer Satisfaction Trend")
+                st.line_chart(trend)
+
+            with col2:
+                st.pyplot(fig)
+                st.markdown("---")
+
+            st.subheader("Top Customer Issues")
+            st.write(list(keywords))
 
 
     # ================= AI ASSISTANT =================
