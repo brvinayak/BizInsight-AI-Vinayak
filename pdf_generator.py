@@ -1,7 +1,9 @@
+import os
+import tempfile
 from fpdf import FPDF
 from datetime import datetime
 
-def create_pdf(total_reviews, positive, negative):
+def create_pdf(total, positive, negative, chart_path):
 
     pdf = FPDF()
 
@@ -29,7 +31,7 @@ def create_pdf(total_reviews, positive, negative):
 
     pdf.set_font("Arial", size=12)
 
-    pdf.cell(200, 10, f"Total Reviews: {total_reviews}", ln=True)
+    pdf.cell(200, 10, f"Total Reviews: {total}", ln=True)
     pdf.cell(200, 10, f"Positive Reviews: {positive}", ln=True)
     pdf.cell(200, 10, f"Negative Reviews: {negative}", ln=True)
 
@@ -45,12 +47,12 @@ def create_pdf(total_reviews, positive, negative):
         summary = "Customer feedback indicates improvement areas in service."
     pdf.multi_cell(0, 10, f"Summary: {summary}")
 
-    import os
+    
 
-    if os.path.exists("sentiment_chart.png"):
+    if os.path.exists(chart_path):
         pdf.ln(5)
-        pdf.image("sentiment_chart.png", x=45, w=100)
-    # Dynamic Insights
+        pdf.image(chart_path, x=45, w=100)
+    #Insights
     pdf.ln(5)
 
     pdf.set_font("Arial", "B", 13)
@@ -72,7 +74,7 @@ def create_pdf(total_reviews, positive, negative):
     pdf.multi_cell(0, 8, insight)
 
 
-# Dynamic Recommendations
+#Recommendations
     pdf.ln(5)
 
     pdf.set_font("Arial", "B", 13)
@@ -106,7 +108,12 @@ def create_pdf(total_reviews, positive, negative):
     )
 
     # Save PDF
-    pdf.output("bizinsight_report.pdf")
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
+        pdf_path = tmp_pdf.name
+
+    pdf.output(pdf_path)
+
+    return pdf_path
 
     
     

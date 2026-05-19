@@ -1,4 +1,5 @@
 import os
+import tempfile
 from pdf_generator import create_pdf
 from dotenv import load_dotenv
 
@@ -110,25 +111,26 @@ if data:
         c3.metric("Negative", negative)
 
         st.markdown("---")
+        # Create chart first
+        fig, ax = plt.subplots(figsize=(4,4))
+
+        ax.bar(
+            ["Positive", "Negative"],
+            [positive, negative]
+        )
+
+        plt.tight_layout()
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
+            chart_path = tmpfile.name
+
+            fig.savefig(chart_path)
         if st.button("Generate PDF Report"):
 
-            # Create chart first
-            fig, ax = plt.subplots(figsize=(4,4))
-
-            ax.bar(
-                ["Positive", "Negative"],
-                [positive, negative]
-            )
-
-            plt.tight_layout()
-
-            fig.savefig("sentiment_chart.png")
-
             # THEN create PDF
-            create_pdf(len(df), positive, negative)
+            pdf_path = create_pdf(len(df), positive, negative, chart_path)
 
             # Download button
-            with open("bizinsight_report.pdf", "rb") as pdf_file:
+            with open(pdf_path, "rb") as pdf_file:
 
                 st.download_button(
                 label="Download Report",
@@ -138,18 +140,18 @@ if data:
             )
 
             # Dashboard visuals
-            col1, col2 = st.columns([2,1])
+        col1, col2 = st.columns([2,1])
 
-            with col1:
-                st.subheader("Customer Satisfaction Trend")
-                st.line_chart(trend)
+        with col1:
+            st.subheader("Customer Satisfaction Trend")
+            st.line_chart(trend)
 
-            with col2:
-                st.pyplot(fig)
-                st.markdown("---")
+        with col2:
+            st.pyplot(fig)
+            st.markdown("---")
 
-            st.subheader("Top Customer Issues")
-            st.write(list(keywords))
+        st.subheader("Top Customer Issues")
+        st.write(list(keywords))
 
 
     # ================= AI ASSISTANT =================
