@@ -17,9 +17,10 @@ from openai import OpenAI
 
 # ---------- Chimera AI Client ----------
 
-api_key = os.getenv("OPENROUTER_API_KEY")
+api_key = st.secrets.get("OPENROUTER_API_KEY") or os.getenv("OPENROUTER_API_KEY")
+
 if not api_key:
-    raise ValueError("OPENROUTER_API_KEY environment variable not set. Please create a .env file with your API key.")
+    raise ValueError("OPENROUTER_API_KEY not found in Streamlit secrets or environment variables.")
 
 client = OpenAI(
     api_key=api_key,
@@ -28,6 +29,10 @@ client = OpenAI(
 
 st.title("📊 BizInsight AI")
 st.caption("AI-powered customer intelligence platform for business growth")
+
+if "data_cleared" in st.session_state:
+    st.success("All data removed successfully.")
+    del st.session_state.data_cleared
 
 tabs = st.tabs(["📊 Dashboard", "🤖 AI Assistant", "📂 Data Upload", "⚙ Controls"])
 
@@ -96,9 +101,23 @@ if data:
 
     trend = df.groupby(df["date"].dt.date)["sentiment"].mean()
 
-    vectorizer = CountVectorizer(stop_words="english", max_features=10)
-    X = vectorizer.fit_transform(df["review"])
-    keywords = vectorizer.get_feature_names_out()
+    reviews = df["review"].dropna()
+
+    if reviews.empty or (
+        reviews.apply(lambda x: isinstance(x, str)).all() and 
+        reviews.str.strip().eq("").all()
+    ):
+        keywords = []
+    else:
+        vectorizer = CountVectorizer(stop_words="english", max_features=10)
+        try:
+            X = vectorizer.fit_transform(reviews)
+            keywords = vectorizer.get_feature_names_out()
+        except ValueError as e:
+            if "empty vocabulary" in str(e).lower():
+                keywords = []
+            else:
+                raise
 
     # ================= DASHBOARD =================
 
@@ -174,7 +193,8 @@ if data:
 
         if st.button("🗑 Clear all stored feedback"):
             clear_data()
-            st.success("All data removed successfully.")
+            st.session_state.data_cleared = True
+            st.rerun()
 
         st.warning("This action cannot be undone.")
 
