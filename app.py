@@ -22,6 +22,11 @@ api_key = os.getenv("OPENROUTER_API_KEY")
 if not api_key:
     raise ValueError("OPENROUTER_API_KEY environment variable not set. Please create a .env file with your API key.")
 
+api_key = st.secrets.get("OPENROUTER_API_KEY") or os.getenv("OPENROUTER_API_KEY")
+
+if not api_key:
+    raise ValueError("OPENROUTER_API_KEY not found in Streamlit secrets or environment variables.")
+
 client = OpenAI(
     api_key=api_key,
     base_url="https://openrouter.ai/api/v1"
@@ -200,11 +205,9 @@ if data:
             st.line_chart(trend)
 
         with col2:
-            fig, ax = plt.subplots()
-            ax.bar(["Positive", "Negative"], [positive, negative])
             st.pyplot(fig)
-
-        st.markdown("---")
+            plt.close(fig)  # Fix: prevents matplotlib memory leak
+            st.markdown("---")
 
         st.subheader("Top Customer Issues")
         st.write(list(keywords))

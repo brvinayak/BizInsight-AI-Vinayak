@@ -1,7 +1,8 @@
 import sqlite3
+import logging
+from contextlib import contextmanager
 
-conn = sqlite3.connect("bizinsight.db", check_same_thread=False)
-cursor = conn.cursor()
+DB_NAME = "bizinsight.db"
 
 # We create a feedback table to store the original review, cleaned review, sentiment score, and timestamp. The original_review column is marked as UNIQUE to prevent duplicate entries.
 cursor.execute("""
