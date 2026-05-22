@@ -82,7 +82,7 @@ streamlit run app.py
 ## 📂 Project Structure
 
 ```
-bizinsight-ai/
+BizInsight-AI/
 │
 ├── app.py              # Main Streamlit application
 ├── database.py         # SQLite database logic
