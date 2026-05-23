@@ -141,7 +141,6 @@ with tabs[2]:
 
                 st.warning("No valid reviews found after cleaning.")
 
-
             else:
 
                 df["sentiment"] = df["review"].apply(get_sentiment)
@@ -186,8 +185,6 @@ if data:
     trend = df.groupby(df["date"].dt.date)["sentiment"].mean()
 
     # Keyword Extraction
-
-    # Keywords
 
     reviews = df["review"].dropna()
 
@@ -243,8 +240,7 @@ if data:
 
         # Trend Chart
 
-
-        col1, col2 = st.columns([2,1])
+        col1, col2 = st.columns([2, 1])
 
         with col1:
 
@@ -254,7 +250,6 @@ if data:
         with col2:
 
             fig3, ax3 = plt.subplots(figsize=(3.2, 3.2))
-
 
             ax3.pie(
                 [positive, negative, neutral],
@@ -285,6 +280,16 @@ if data:
             ax2.tick_params(axis='both', labelsize=7)
 
             st.pyplot(fig2)
+
+        st.markdown("---")
+
+        csv_data = df.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            label="⬇️ Download Feedback as CSV",
+            data=csv_data,
+            file_name="bizinsight_feedback.csv",
+            mime="text/csv"
+        )
 
         st.markdown("---")
 
