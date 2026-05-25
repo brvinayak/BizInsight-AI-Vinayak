@@ -132,6 +132,8 @@ Customer reviews:
 
 # ================= DATA UPLOAD =================
 
+# ================= DATA UPLOAD =================
+
 with tabs[2]:
 
     st.subheader("📂 Upload Customer Reviews")
@@ -142,37 +144,18 @@ with tabs[2]:
     )
 
     if uploaded_file:
-        clear_data()  # Clear existing data before adding new
-
+        clear_data()                     # clear old data
         df = pd.read_csv(uploaded_file)
-        # Fixed dataframe width argument
-        st.dataframe(df, width="stretch")
+        st.dataframe(df, use_container_width=True)
 
-        # Clean text and get sentiment for each review
-        df["cleaned_for_sentiment"] = df["review"].apply(clean_text_for_sentiment)
-        df["sentiment"] = df["cleaned_for_sentiment"].apply(get_sentiment)
+        # Compute sentiment directly on original review
+        df["sentiment"] = df["review"].apply(get_sentiment)
 
+        # Insert only once
         for _, row in df.iterrows():
-            insert_feedback(row["cleaned_for_sentiment"], row["sentiment"])
+            insert_feedback(row["review"], row["sentiment"])
 
-        st.success("Feedback successfully added!")  
-
-        if df.empty:
-
-            st.warning("No valid reviews found after cleaning.")
-
-        else:
-
-            df["sentiment"] = df["review"].apply(get_sentiment)
-
-            inserted_count = 0
-
-            for _, row in df.iterrows():
-                insert_feedback(row["review"], row["sentiment"])
-                inserted_count += 1
-
-            st.success(f"{inserted_count} feedback entries successfully added!")
-
+        st.success(f"✅ Successfully added {len(df)} feedback entries!")
 # ================= FETCH DATA =================
 
 data = fetch_feedback()
