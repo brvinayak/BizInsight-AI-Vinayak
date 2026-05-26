@@ -1,6 +1,8 @@
 import os
 from dotenv import load_dotenv
+
 load_dotenv()
+
 import streamlit as st
 st.set_page_config(page_title="BizInsight AI", layout="wide")
 import pandas as pd
@@ -9,6 +11,11 @@ from sklearn.feature_extraction.text import CountVectorizer
 from database import insert_feedback, fetch_feedback, clear_data
 
 from openai import OpenAI
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+from clustering.run_clustering import run_pipeline
+import re
+from clustering.vectorize import load_model
+import matplotlib.pyplot as plt
 from sentiment import analyze
 
 # ---------- Chimera AI Client ----------
@@ -24,6 +31,8 @@ else:
         base_url="https://openrouter.ai/api/v1"
     )
 
+vader_analyzer = SentimentIntensityAnalyzer()
+
 st.title("📊 BizInsight AI")
 st.caption("AI-powered customer intelligence platform for business growth")
 
@@ -33,11 +42,23 @@ if "data_cleared" in st.session_state:
 
 tabs = st.tabs(["📊 Dashboard", "🤖 AI Assistant", "📂 Data Upload", "⚙ Controls"])
 
-# ================= FUNCTIONS =================
-
+# ---------- Core Functions ----------
+# Vader sentiment analysis (replacing TextBlob for better performance on short reviews)
 def get_sentiment(text):
-    """Returns ensemble score float in [-1, +1] — same contract as before."""
-    return analyze(text)["score"]
+    """Improved sentiment using VADER"""
+    scores = vader_analyzer.polarity_scores(text)
+    return scores['compound']
+
+# Text cleaning for sentiment analysis (minimal cleaning to preserve sentiment)
+def clean_text_for_sentiment(text):
+    text = text.lower()
+    # Remove ALL digits
+    text = re.sub(r'\d+', '', text)
+    # Remove # symbol
+    text = re.sub(r'#', '', text)
+    # Remove extra spaces
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
 
 
 # ================= AI ASSISTANT =================
@@ -81,9 +102,9 @@ You are a business intelligence assistant.
 Customer reviews:
 {reviews_text}
 
-Question:
-{question}
-"""
+    Question:
+    {question}
+    """
 
                 try:
 
@@ -110,6 +131,7 @@ Question:
                 except Exception as e:
                     st.error(f"Error generating AI response: {str(e)}")
 
+# ================= DATA UPLOAD =================
 
 # ================= DATA UPLOAD =================
 
@@ -141,47 +163,25 @@ with tabs[2]:
     st.markdown("---")
 
     # ── CSV upload ────────────────────────────────────────────────────────────
-    uploaded_file = st.file_uploader("Upload CSV with review column", type="csv")
     uploaded_file = st.file_uploader(
         "Upload CSV with review column",
-        type="csv"
+        type="csv",
+        key="csv_uploader_main"
     )
 
     if uploaded_file:
-
+        clear_data()                     # clear old data
         df = pd.read_csv(uploaded_file)
-
         st.dataframe(df, use_container_width=True)
 
-        if "review" not in df.columns:
-            st.error("CSV must contain a 'review' column.")
+        # Compute sentiment directly on original review
+        df["sentiment"] = df["review"].apply(get_sentiment)
 
-        else:
+        # Insert only once
+        for _, row in df.iterrows():
+            insert_feedback(row["review"], row["sentiment"])
 
-            df = df.dropna(subset=["review"])
-            df["review"] = df["review"].astype(str).str.strip()
-            df = df[df["review"] != ""]
-
-            if df.empty:
-
-                st.warning("No valid reviews found after cleaning.")
-
-            else:
-                with st.spinner("Analyzing sentiment..."):
-                    df["sentiment"] = df["review"].apply(get_sentiment)
-
-                inserted_count = 0
-
-                df["sentiment"] = df["review"].apply(get_sentiment)
-
-                inserted_count = 0
-
-                for _, row in df.iterrows():
-                    insert_feedback(row["review"], row["sentiment"])
-                    inserted_count += 1
-
-                st.success(f"{inserted_count} feedback entries successfully added!")
-
+        st.success(f"✅ Successfully added {len(df)} feedback entries!")
 # ================= FETCH DATA =================
 
 data = fetch_feedback()
@@ -266,10 +266,42 @@ if data:
         c4.metric("Neutral %", f"{neutral_percent}%")
 
         st.markdown("---")
+        
+        # ========== SMART COMPLAINT CLUSTERING ==========
+        st.subheader("🔍 Smart Complaint Clustering")
 
-        # Trend Chart
+        embedding_model = load_model()
+        
+        if st.button("Find Complaint Clusters"):
+            with st.spinner("Analyzing negative reviews... (This may take a moment to download the embedding model on first run)"):
+                # Get only negative reviews (sentiment < 0)
+                negative_reviews = df[df["sentiment"] < 0]["review"].tolist()
+                
+                if len(negative_reviews) < 10:
+                    st.warning(f"Only {len(negative_reviews)} negative reviews found. Need at least 10 for meaningful clustering.")
+                else:
+                    result = run_pipeline(
+                        negative_reviews, 
+                        embedding_model, 
+                        min_topic_size=25, # Adjusted for better cluster quality with small datasets 
+                        similarity_threshold=0.4, # Tuned for better merging of similar clusters, can be adjusted based on dataset size and diversity
+                        verbose=True # Keep verbose on to show progress
+                    ) 
+                    
+                    if result["success"]:
+                        st.success(f"✅ Found {result['n_clusters']} complaint clusters from {result['total_negative_reviews']} negative reviews")
+                        
+                        # Display clusters
+                        for cluster in result["clusters"]:
+                            with st.expander(f"📌 {cluster['name']} ({cluster['percentage']:.1f}%) - {cluster['count']} reviews"):
+                                st.write("**Some Reviews:**")
+                                for i, review in enumerate(cluster.get('example_reviews', [cluster['sample_review']])[:3]):
+                                    st.write(f"  {i+1}. \"{review}\"")
+                    else:
+                        st.error(result["message"])
 
-        col1, col2 = st.columns([2, 1])
+        st.markdown("---")
+        col1, col2 = st.columns([2,1])
 
         with col1:
 
@@ -337,9 +369,8 @@ if data:
         if st.button("🗑 Clear all stored feedback"):
 
             clear_data()
-
-            st.session_state.data_cleared = True
-            st.rerun()
+            st.success("All data removed successfully.")
+            st.rerun() # Refresh the page to show empty state
 
         st.warning("This action cannot be undone.")
 

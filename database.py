@@ -92,24 +92,25 @@ def fetch_feedback():
 
 
 def clear_data():
-
     try:
         with get_connection() as conn:
-
             cursor = conn.cursor()
-
-            cursor.execute("DELETE FROM feedback")
-
-            conn.commit()
-
+            # Check if table exists
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='feedback'")
+            if cursor.fetchone():
+                cursor.execute("DELETE FROM feedback")
+                conn.commit()
+            else:
+                logger.info("Table 'feedback' does not exist; nothing to clear.")
             return True
-
     except sqlite3.Error as e:
-
         logger.error(f"Delete Error: {e}")
-
         raise sqlite3.Error(f"Delete Error: {e}")
 
+# ... rest of the file ...
 
 if __name__ == "__main__":
+    initialize_database()
+else:
+    # When imported by app.py, also create the table
     initialize_database()
