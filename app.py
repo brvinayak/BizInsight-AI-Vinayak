@@ -1,6 +1,7 @@
 import os
 import uuid
 import re
+import tempfile
 import requests
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -18,6 +19,7 @@ import nltk
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 from clustering.run_clustering import run_pipeline
 from clustering.vectorize import load_model
+from pdf_generator import create_pdf
 
 # ---------- API Key ----------
 api_key = os.getenv("OPENROUTER_API_KEY")
@@ -229,6 +231,30 @@ if data:
         st.markdown("---")
         csv = df.to_csv(index=False).encode("utf-8")
         st.download_button("⬇️ Download Feedback CSV", data=csv, file_name="feedback.csv", mime="text/csv")
+
+        # Generate chart image for PDF and provide report download
+        if st.button("Generate PDF Report"):
+            with st.spinner("Generating PDF report..."):
+                fig_pdf, ax_pdf = plt.subplots()
+                ax_pdf.pie(
+                    [positive, negative, neutral],
+                    labels=["Positive", "Negative", "Neutral"],
+                    autopct="%1.1f%%"
+                )
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_chart:
+                    chart_path = tmp_chart.name
+                fig_pdf.savefig(chart_path, bbox_inches="tight")
+                plt.close(fig_pdf)
+
+                reviews_for_pdf = df["original_review"].dropna().astype(str).tolist()
+                pdf_path = create_pdf(total, positive, negative, chart_path, reviews_for_pdf)
+                with open(pdf_path, "rb") as pdf_file:
+                    st.download_button(
+                        "Download PDF Report",
+                        data=pdf_file,
+                        file_name="bizinsight_report.pdf",
+                        mime="application/pdf"
+                    )
 
         st.subheader("Top Keywords")
         st.dataframe(keyword_df, use_container_width=True)

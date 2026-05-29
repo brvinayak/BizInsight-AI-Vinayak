@@ -2,8 +2,46 @@ import os
 import tempfile
 from fpdf import FPDF
 from datetime import datetime
+import requests
+from dotenv import load_dotenv
+load_dotenv()
 
-def create_pdf(total, positive, negative, chart_path):
+api_key=os.getenv("OPENROUTER_API_KEY")
+
+
+def generate_recommendations(reviews, positive, negative, api_key=api_key):
+    url = "https://openrouter.ai/api/v1/chat/completions"
+
+    sample = "\n".join(f"- {r}" for r in reviews)
+
+    headers = {
+    "Authorization": f"Bearer {api_key}",
+    "Content-Type": "application/json"
+    }
+
+    data = {
+    "model": "openai/gpt-3.5-turbo",
+
+    "messages": [
+            {
+            "role": "user",
+            "content": f"""You are a business analyst writing a short report section.
+            Customer feedback data:
+    - Positive reviews: {positive}
+    - Negative reviews: {negative}
+            Sample reviews:{sample}
+            Write a Recommendations paragraph of 2-3 sentences giving concrete, actionable steps the business should take based on this feedback. Plain text only, no bullet points, no markdown."""
+            }
+        ]
+    }
+
+    response = requests.post(url, headers=headers, json=data)
+
+    result = response.json()
+
+    return result["choices"][0]["message"]["content"]
+
+def create_pdf(total, positive, negative, chart_path, reviews=None):
 
     pdf = FPDF()
 
@@ -35,7 +73,7 @@ def create_pdf(total, positive, negative, chart_path):
     pdf.cell(200, 10, f"Positive Reviews: {positive}", ln=True)
     pdf.cell(200, 10, f"Negative Reviews: {negative}", ln=True)
 
-    pdf.ln(10)
+    pdf.ln(5)
     current_time = datetime.now().strftime("%d-%m-%Y %H:%M")
 
     pdf.cell(200, 10, f"Generated On: {current_time}", ln=True)    
@@ -82,20 +120,23 @@ def create_pdf(total, positive, negative, chart_path):
 
     pdf.set_font("Arial", "", 11)
 
-    if negative > positive:
+    if reviews and api_key:
+        recommendation = generate_recommendations(reviews, positive, negative, api_key)
+
+    elif negative > positive:
         recommendation = (
             "Focus on resolving recurring complaints and improving "
             "customer support response time."
-    )
+        )
     else:
         recommendation = (
             "Maintain current service quality and continue monitoring "
             "customer satisfaction trends."
-    )
+        )
 
     pdf.multi_cell(0, 8, recommendation)
 
-    pdf.ln(10)
+    pdf.ln(5)
 
     pdf.set_font("Arial", "I", 10)
 
